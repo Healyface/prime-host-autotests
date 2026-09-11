@@ -41,7 +41,6 @@ test.describe('Single domain add to cart', { lock: 'shared-account' }, () => {
                 await cartPage.goto();
                 await expect(cartPage.totalRow).toHaveCount(1);
                 const totalPrice = await cartPage.getTotalPrice();
-                // console.log(`Search price: ${searchPrice}, Cart total: ${totalPrice}`);
                 expect(totalPrice).toBeCloseTo(searchPrice, 2);
             });
         });

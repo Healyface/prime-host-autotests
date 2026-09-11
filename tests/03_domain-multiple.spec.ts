@@ -40,7 +40,6 @@ test.describe('Multiple domains add to cart', { lock: 'shared-account' }, () => 
             await expect(cartPage.totalRow).toHaveCount(1);
             const totalPrice = await cartPage.getTotalPrice();
             const expectedTotal = addedDomains.reduce((sum, d) => sum + d.price, 0);
-            // console.log(`Expected total: ${expectedTotal}, Cart total: ${totalPrice}, domains:`, addedDomains.map(d => `${d.name} ($${d.price})`));
             expect(totalPrice).toBeCloseTo(expectedTotal, 2);
         });
     });
