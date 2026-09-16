@@ -1,0 +1,88 @@
+
+Автоматизовані тести для тестового завдання: перевірка сторінки контактів та реєстрації домену на тестовому середовищі.
+
+## Стек
+
+- Playwright Test — `1.63.0`
+- TypeScript — `6.0.3`
+- Node.js — `>=20`
+- dotenv — `17.4.2`
+
+## Структура проєкту
+
+```
+/fixtures
+  index.ts — кастомні Playwright fixtures (DI для Page Objects, teardown та очищення)
+/pageobjects
+  LoginPage.ts — сторінка авторизації
+  ContactsPage.ts — сторінка (/contacts)
+  DomainPage.ts — пошук домену, додавання в кошик (/register-domain)
+  CartPage.ts — сторінка кошика (/cart)
+/tests
+  00_auth.setup.ts — авторизація, збереження storageState
+  01_contacts.spec.ts — create / edit / delete контакту
+  02_domain-single.spec.ts — поодиноке додавання домену в кошик (3 TLD-зони)
+  03_domain-multiple.spec.ts — пошук без TLD, додавання 3 доменів, звірка TOTAL
+/utils
+  priceUtils.ts — парсинг ціни з тексту (враховує promo)
+  randomLetters.ts — генерація випадкових літер для унікальних даних тестів
+playwright.config.ts
+.env.example
+```
+
+## Встановлення
+
+```bash
+npm ci 
+npx playwright install
+```
+
+## Налаштування середовища
+
+Скопіюйте `.env.example` у `.env` та заповніть реальними даними
+
+\`\`\`
+BASE_URL=
+USER_EMAIL=
+USER_PASSWORD=
+\`\`\`
+
+`.env` з моїми кредами доданий у `.gitignore` і не потрапляє в репозиторій.
+
+## Запуск тестів
+
+Всі тести:
+```bash
+npx playwright test
+```
+
+Запуск конкретного файлу:
+```bash
+npx playwright test tests/02_domain-single.spec.ts
+```
+
+Запуск у headed-режимі (з відкриттям браузера):
+```bash
+npx playwright test --headed
+```
+
+Перегляд HTML-звіту після прогону:
+```bash
+npx playwright show-report
+```
+
+## Архітектурні рішення
+
+- **Playwright Fixtures (`fixtures/index.ts`)** — Dependency Injection для Page Objects (`loginPage`, `contactsPage`, `domainPage`, `cartPage`) замість ручного інстанціювання `new Page(page)`. Тести імпортують розширений `test` і отримують готові сторінки як аргументи функцій.
+- **Автоматичний життєвий цикл та Teardown** — очищення кошика (`clearCart`) на старті та після завершення тесту інкапсульовано у фікстурі `cartPage`, що усунуло дублювання `beforeEach`/`afterEach` у тестах доменів. Очищення контактів виконується через фікстуру `trackContactCleanup`, яка гарантовано перевіряє та видаляє залишені тестові дані під час teardown.
+- **POM** — кожна сторінка має свій клас (`pageobjects/`), тести не містять прямих селекторів.
+- **Авторизація** — `00_auth.setup.ts` логіниться та зберігає `storageState` у `playwright/.auth/storage-state.json`. Усі тести використовують цю сесію замість повторного логіну. Fail-fast на відсутні змінні середовища, якщо `BASE_URL`, `USER_EMAIL` або `USER_PASSWORD` не задані.
+- **Test locks** — усі тестові набори, що працюють з одним і тим самим тестовим акаунтом (контакти, кошик), позначені `{ lock: 'shared-account' }` - нова фіча PW API версії 1.63. Це гарантує, що вони ніколи не виконуються одночасно (навіть у різних файлах/воркерах). Решта конфігурації (`fullyParallel: true`) залишається стандартною.
+- **Відповідь по запитам замість `waitForTimeout`** — пошук домену та додавання в кошик очікують відповідні API-відповіді (`/price`, `/cart-domain-registered-list`), це запобігає flacky.
+- **Парсинг цін** — `utils/priceUtils.ts` коректно обробляє promo-знижки.
+
+## Покриті сценарії
+
+1. **Контакти (`/contacts`)** — створення, редагування, видалення контакту в одному наскрізному тесті (`test.step` для кожного етапу).
+2. **Поодиноке додавання домену** — пошук з зазначенням TLD, додавання в кошик, звірка ціни з кошиком. Параметризовано для 3 доменних зон (`.com`, `.net`, `.org`).
+3. **Додавання кількох доменів** — пошук без TLD, додавання 3 вільних доменів, звірка суми цін з TOTAL у кошику.
